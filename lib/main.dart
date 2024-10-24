@@ -22,7 +22,7 @@ class MainApp extends StatelessWidget {
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: Color.fromARGB(255, 17, 121, 121),
         ),
-        textTheme: GoogleFonts.latoTextTheme(),
+        textTheme: GoogleFonts.latoTextTheme().apply(bodyColor: Colors.white),
       ),
       home: const GroceryListScreen(),
     );
