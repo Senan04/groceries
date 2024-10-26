@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:groceries/data/categories.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:groceries/models/grocery_item.dart';
 import 'package:groceries/screens/add_item.dart';
@@ -11,27 +14,79 @@ class GroceryListScreen extends StatefulWidget {
 }
 
 class _GroceryListScreenState extends State<GroceryListScreen> {
-  final List<GroceryItem> groceries = [];
+  List<GroceryItem> _groceries = [];
+  var _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItems();
+  }
+
+  void _loadItems() async {
+    final url = Uri.https(
+      'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
+      'shopping-list.json',
+    );
+    final response = await http.get(url);
+
+    if (response.statusCode >= 400) {
+      setState(() {
+        _error = 'Failed to load. Please try again later !';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    if (response.body == 'null') {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final Map<String, dynamic> groceriesFromJSON = json.decode(response.body);
+    final List<GroceryItem> loadedGroceries = groceriesFromJSON.entries
+        .map((entry) => GroceryItem(
+            id: entry.key,
+            category: categories.entries
+                .firstWhere((catItem) =>
+                    catItem.value.category == entry.value['category'])
+                .value,
+            name: entry.value['name'],
+            quantity: entry.value['quantity']))
+        .toList();
+    setState(() {
+      _groceries = loadedGroceries;
+      _isLoading = false;
+    });
+  }
 
   void _addItem() async {
     final addedItem = await Navigator.of(context)
         .push(MaterialPageRoute(builder: (ctx) => const AddItemScreen()));
-
     if (addedItem != null) {
       setState(() {
-        groceries.add(addedItem);
+        _groceries.add(addedItem);
       });
     }
   }
 
   void _deleteItem(int index) {
     setState(() {
-      groceries.removeAt(index);
+      _groceries.removeAt(index);
     });
   }
 
   Widget get _content {
-    if (groceries.isEmpty) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    } else if (_error != null) {
+      return Center(child: Text(_error!));
+    } else if (_groceries.isEmpty) {
       return Center(
         child: Text(
           'There are no items in your Shopping List!',
@@ -43,7 +98,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
       );
     } else {
       return ListView.builder(
-        itemCount: groceries.length,
+        itemCount: _groceries.length,
         itemBuilder: (ctx, index) => Slidable(
           endActionPane: ActionPane(
             motion: const BehindMotion(),
@@ -58,14 +113,14 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
           ),
           child: ListTile(
             leading: ColoredBox(
-              color: groceries[index].category.categoryColor,
+              color: _groceries[index].category.categoryColor,
               child: const SizedBox.square(
                 dimension: 20,
               ),
             ),
-            title: Text(groceries[index].name),
+            title: Text(_groceries[index].name),
             trailing: Text(
-              groceries[index].quantity.toString(),
+              _groceries[index].quantity.toString(),
               style: Theme.of(context)
                   .textTheme
                   .bodyMedium!

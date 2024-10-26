@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:groceries/data/categories.dart';
 import 'package:groceries/models/category.dart';
 import 'package:groceries/models/grocery_item.dart';
@@ -15,6 +17,39 @@ class _AddItemScreenState extends State<AddItemScreen> {
   var _enteredName = '';
   var _enteredQuantity = 1;
   var _selectedCategory = categories[Categories.other]!;
+  var _isSending = false;
+
+  void _saveItem() async {
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+    setState(() {
+      _isSending = true;
+    });
+    final url = Uri.https(
+      'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
+      'shopping-list.json',
+    );
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'name': _enteredName,
+        'quantity': _enteredQuantity,
+        'category': _selectedCategory.category,
+      }),
+    );
+    final Map<String, dynamic> responseData = json.decode(response.body);
+    if (!context.mounted) return;
+    Navigator.of(context).pop(
+      GroceryItem(
+          id: responseData['name'],
+          category: _selectedCategory,
+          name: _enteredName,
+          quantity: _enteredQuantity),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,22 +136,20 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => _formKey.currentState!.reset(),
+                    onPressed: _isSending
+                        ? null
+                        : () => _formKey.currentState!.reset(),
                     child: const Text("Reset"),
                   ),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        _formKey.currentState!.save();
-                        Navigator.of(context).pop(GroceryItem(
-                          id: DateTime.now().toString(),
-                          category: _selectedCategory,
-                          name: _enteredName,
-                          quantity: _enteredQuantity,
-                        ));
-                      }
-                    },
-                    child: const Text("Save"),
+                    onPressed: _isSending ? null : _saveItem,
+                    child: _isSending
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(),
+                          )
+                        : const Text("Save"),
                   ),
                 ],
               ),
