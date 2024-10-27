@@ -6,7 +6,9 @@ import 'package:groceries/models/category.dart';
 import 'package:groceries/models/grocery_item.dart';
 
 class AddItemScreen extends StatefulWidget {
-  const AddItemScreen({super.key});
+  const AddItemScreen(this.showErrorMessage, {super.key});
+
+  final void Function() showErrorMessage;
 
   @override
   State<AddItemScreen> createState() => _AddItemScreenState();
@@ -29,26 +31,30 @@ class _AddItemScreenState extends State<AddItemScreen> {
       'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
       'shopping-list.json',
     );
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'name': _enteredName,
-        'quantity': _enteredQuantity,
-        'category': _selectedCategory.category,
-      }),
-    );
-    final Map<String, dynamic> responseData = json.decode(response.body);
-    if (!context.mounted) return;
-    Navigator.of(context).pop(
-      GroceryItem(
-          id: responseData['name'],
-          category: _selectedCategory,
-          name: _enteredName,
-          quantity: _enteredQuantity),
-    );
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'name': _enteredName,
+          'quantity': _enteredQuantity,
+          'category': _selectedCategory.category,
+        }),
+      );
+      final Map<String, dynamic> responseData = json.decode(response.body);
+      if (!context.mounted) return;
+      Navigator.of(context).pop(
+        GroceryItem(
+            id: responseData['name'],
+            category: _selectedCategory,
+            name: _enteredName,
+            quantity: _enteredQuantity),
+      );
+    } catch (exception) {
+      widget.showErrorMessage();
+    }
   }
 
   @override

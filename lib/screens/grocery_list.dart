@@ -29,43 +29,47 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
       'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
       'shopping-list.json',
     );
-    final response = await http.get(url);
+    try {
+      final response = await http.get(url);
 
-    if (response.statusCode >= 400) {
+      if (response.statusCode >= 400) {
+        setState(() {
+          _error = 'Failed to load. Please try again later !';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (response.body == 'null') {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final Map<String, dynamic> groceriesFromJSON = json.decode(response.body);
+      final List<GroceryItem> loadedGroceries = groceriesFromJSON.entries
+          .map((entry) => GroceryItem(
+              id: entry.key,
+              category: categories.entries
+                  .firstWhere((catItem) =>
+                      catItem.value.category == entry.value['category'])
+                  .value,
+              name: entry.value['name'],
+              quantity: entry.value['quantity']))
+          .toList();
       setState(() {
-        _error = 'Failed to load. Please try again later !';
+        _groceries = loadedGroceries;
         _isLoading = false;
       });
-      return;
+    } catch (exception) {
+      _showErrorMessage();
     }
-
-    if (response.body == 'null') {
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-
-    final Map<String, dynamic> groceriesFromJSON = json.decode(response.body);
-    final List<GroceryItem> loadedGroceries = groceriesFromJSON.entries
-        .map((entry) => GroceryItem(
-            id: entry.key,
-            category: categories.entries
-                .firstWhere((catItem) =>
-                    catItem.value.category == entry.value['category'])
-                .value,
-            name: entry.value['name'],
-            quantity: entry.value['quantity']))
-        .toList();
-    setState(() {
-      _groceries = loadedGroceries;
-      _isLoading = false;
-    });
   }
 
   void _addItem() async {
-    final addedItem = await Navigator.of(context)
-        .push(MaterialPageRoute(builder: (ctx) => const AddItemScreen()));
+    final addedItem = await Navigator.of(context).push(
+        MaterialPageRoute(builder: (ctx) => AddItemScreen(_showErrorMessage)));
     if (addedItem != null) {
       setState(() {
         _groceries.add(addedItem);
@@ -98,17 +102,28 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
       'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
       'shopping-list/${groceryItem.id}.json',
     );
-    final response = await http.delete(url);
+    try {
+      final response = await http.delete(url);
 
-    if (response.statusCode >= 400) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Failed to delete the item. Please try again!')));
+      if (response.statusCode >= 400) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Failed to delete the item. Please try again!')));
+        }
+        setState(() {
+          _groceries.insert(index, groceryItem);
+        });
       }
-      setState(() {
-        _groceries.insert(index, groceryItem);
-      });
+    } catch (e) {
+      _showErrorMessage();
     }
+  }
+
+  void _showErrorMessage() {
+    setState(() {
+      _isLoading = false;
+      _error = 'Something went wrong... Please try again later!';
+    });
   }
 
   Widget get _content {
