@@ -73,10 +73,42 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
     }
   }
 
-  void _deleteItem(int index) {
+  void _deleteItem(int index) async {
+    final groceryItem = _groceries[index];
+
     setState(() {
-      _groceries.removeAt(index);
+      _groceries.remove(groceryItem);
     });
+    ScaffoldMessenger.of(context).clearSnackBars();
+    final snackBarController = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Deleted ${groceryItem.name}'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => setState(() {
+            _groceries.insert(index, groceryItem);
+          }),
+        ),
+      ),
+    );
+    final reason = await snackBarController.closed;
+    if (reason == SnackBarClosedReason.action) return;
+
+    final url = Uri.https(
+      'flutter-prep-87326-default-rtdb.europe-west1.firebasedatabase.app',
+      'shopping-list/${groceryItem.id}.json',
+    );
+    final response = await http.delete(url);
+
+    if (response.statusCode >= 400) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Failed to delete the item. Please try again!')));
+      }
+      setState(() {
+        _groceries.insert(index, groceryItem);
+      });
+    }
   }
 
   Widget get _content {
